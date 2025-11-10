@@ -1,0 +1,227 @@
+LANCER L'ENVIRONNEMENT VIRTUEL A CHAQUE SESSION 
+
+cd backend
+venv\Scripts\activate
+
+TRES IMPORTANT
+
+
+🧱 Stack Backend proposée
+Langage : Python
+
+Framework : FastAPI (léger, rapide, parfait pour API + intégration avec React)
+
+Parsing PDF/DOCX/Images :
+
+pdfplumber ou PyMuPDF pour PDF
+
+python-docx pour .docx
+
+pytesseract + Pillow pour OCR sur .png, .jpg
+
+Communication avec Claude AI : Appel à leur API (via HTTP)
+
+Génération du PDF standardisé : reportlab ou weasyprint ou pdfplumber + template
+
+
+cv-standardizer/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── endpoints/
+│   │   │   │   ├── upload.py           # Endpoint principal pour recevoir le fichier
+│   │   │   └── api_router.py           # Montage des routes
+│   │   ├── core/
+│   │   │   └── config.py               # Configuration et variables d’env
+│   │   ├── services/
+│   │   │   ├── parser.py               # Parsing PDF / DOCX
+│   │   │   ├── ocr.py                  # OCR pour PNG/JPG
+│   │   │   ├── ai_claude.py            # Appels à l’API Claude
+│   │   │   └── pdf_generator.py        # Génération du PDF final standardisé
+│   │   ├── templates/
+│   │   │   └── base_template.pdf       # Template de base pour génération
+│   │   ├── outputs/
+│   │   │   └── (PDF générés)           # Dossier où les PDF sont écrits
+│   │   └── main.py                     # Point d’entrée FastAPI
+│   ├── requirements.txt                # Dépendances Python
+│   └── .env                            # Clés API Claude, config (non versionné)
+│
+├── frontend/
+│   ├── public/
+│   │   ├── favicon.ico
+│   │   ├── index.html
+│   │   ├── manifest.json
+│   │   └── robots.txt
+│   ├── src/
+│   │   ├── App.css
+│   │   ├── App.js                      # Fichier principal avec dnd + upload
+│   │   ├── Draggable.jsx               # Composant drag personnalisé
+│   │   ├── Droppable.jsx               # Composant drop personnalisé
+│   │   ├── images.png                  # Image de l'en-tête
+│   │   ├── index.css
+│   │   ├── index.js
+│   ├── package.json                    # Dépendances JS + scripts
+│   └── .gitignore
+│
+├── README.md
+└── .gitignore
+
+⚙️ Étapes d’implémentation
+
+1. Drag & Drop (React frontend)
+Depuis le frontend React :
+
+Utilise react-dropzone ou react-dnd
+
+Envoie le fichier via FormData à une route POST /upload du backend
+
+Exemple JS :
+
+const handleUpload = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  await fetch("http://localhost:8000/upload", {
+    method: "POST",
+    body: formData
+  });
+};
+
+2. Endpoint /upload (FastAPI)
+
+# app/api/endpoints/upload.py
+from fastapi import APIRouter, UploadFile, File
+from app.services import parser, ocr, ai_claude, pdf_generator
+import tempfile
+import shutil
+
+router = APIRouter()
+
+@router.post("/upload")
+async def upload_cv(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    # Étape 1 : Extraction
+    if file.filename.endswith('.pdf') or file.filename.endswith('.docx'):
+        text = parser.extract_text(tmp_path)
+    elif file.filename.endswith(('.png', '.jpg', '.jpeg')):
+        text = ocr.extract_text_from_image(tmp_path)
+    else:
+        return {"error": "Format non supporté"}
+
+    # Étape 2 : Envoi à Claude AI
+    structured_data = ai_claude.format_with_claude(text)
+
+    # Étape 3 : Génération de PDF
+    output_path = pdf_generator.generate_pdf(structured_data)
+
+    return {"message": "Traitement réussi", "output_pdf": output_path}
+
+
+3. Parsing des fichiers (parser.py)
+
+# PDF
+import pdfplumber
+
+def extract_text(pdf_path):
+    with pdfplumber.open(pdf_path) as pdf:
+        text = "\n".join([page.extract_text() for page in pdf.pages])
+    return text
+
+# DOCX
+from docx import Document
+
+def extract_text(docx_path):
+    doc = Document(docx_path)
+    return "\n".join([para.text for para in doc.paragraphs])
+
+
+4. OCR des images (ocr.py)
+
+from PIL import Image
+import pytesseract
+
+def extract_text_from_image(image_path):
+    image = Image.open(image_path)
+    return pytesseract.image_to_string(image)
+
+
+5. API Claude AI (ai_claude.py)
+python
+Copier
+Modifier
+import requests
+
+def format_with_claude(text: str):
+    payload = {
+        "prompt": f"Standardise le CV suivant :\n{text}\n\nRetourne un JSON structuré avec nom, contact, expériences, compétences...",
+        "model": "claude-3-opus-20240229",
+        "temperature": 0.2
+    }
+
+    headers = {
+        "Authorization": "Bearer VOTRE_CLAUDE_API_KEY",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post("https://api.anthropic.com/v1/complete", json=payload, headers=headers)
+    return response.json()["completion"]
+
+
+6. Génération de PDF standardisé (pdf_generator.py)
+Tu peux utiliser reportlab ou pdfplumber pour modifier un template existant.
+
+Exemple minimal avec reportlab :
+
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+
+def generate_pdf(data: dict, output="output.pdf"):
+    c = canvas.Canvas(output, pagesize=A4)
+    c.drawString(100, 800, f"Nom: {data['nom']}")
+    c.drawString(100, 780, f"Email: {data['email']}")
+    # Ajouter d’autres champs...
+    c.save()
+    return output
+
+
+✅ Points à anticiper
+
+Validation côté backend (type, poids, sécurité des fichiers)
+
+Stockage temporaire des fichiers ou via cloud (S3, etc.)
+
+Authentification (si besoin d’historique utilisateur)
+
+Téléchargement du PDF final (offrir un lien ou le renvoyer directement)
+
+
+🚀 Lancement de FastAPI
+
+uvicorn app.main:app --reload
+
+
+Récupération du CV (\upload)
+
+@router.post("/upload-direct")
+async def upload_and_download(file: UploadFile = File(...)):
+    # parsing...
+    output_path = pdf_generator.generate_pdf(structured_data)
+    return FileResponse(output_path, media_type='application/pdf', filename="cv_standardise.pdf")
+
+
+À supprimer sans impact :
+
+App.test.js → fichier de test initial
+
+reportWebVitals.js → utilisé pour mesurer les performances (inutile ici)
+
+setupTests.js → pour Jest, inutile si tu ne fais pas de tests
+
+logo.svg → tu utilises images.png à la place
+
+
+Contenu de requirements + contenu/emplacement de package.json + readme + start npm
+

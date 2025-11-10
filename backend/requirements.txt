@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+pytesseract
+Pillow
+pdfplumber
+python-docx
+PyPDF2
+opencv-python
+requests
