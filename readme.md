@@ -16,45 +16,6 @@ Ce projet est une application web qui permet :
 - Téléchargement immédiat du CV standardisé
 - Déploiement facile grâce à **Docker**
 
----
-
-## **Architecture**
-
-Standardisation de CV
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── endpoints/
-│   │   │    ├── upload.py
-│   │   ├── api_router.py
-│   │   ├── core/
-│   │   │    ├── config.py
-│   │   ├── services/
-│   │   │    ├── parser.py
-│   │   │    ├── ocr.py
-│   │   │    ├── ai_claude.py
-│   │   │    ├── pdf_generator.py
-│   │   ├── templates/
-│   │   │    ├── Template_CV_Base.pdf
-│   │   │    ├── Template_CV_Text.pdf
-│   │   │    ├── Template_CV_Aprogsys.pdf
-│   │   ├── outputs/
-│   │   ├── main.py
-│   ├── .env
-│   ├── requirements.txt
-│   ├── Dockerfile
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── Dockerfile
-├── docker-compose.yml
-├── README.md
-
 ## **Installation**
 
 ### Build et démarrage avec Docker Compose
